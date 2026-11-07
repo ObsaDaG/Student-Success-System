@@ -1,0 +1,158 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Success System</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>Student<span>Success</span></h2>
+    <p class="nav-label">WORKSPACE</p>
+    <a class="active" href="#dashboard">▦ Dashboard</a>
+    <a href="#courses">▤ My Courses</a>
+    <a href="#progress">↗ Academic Progress</a>
+    <div class="sidebar-bottom">Your academic journey, organized.</div>
+  </aside>
+
+  <main class="main-content" id="dashboard">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">ACADEMIC WORKSPACE</p>
+        <h1>Student Dashboard</h1>
+        <p class="muted">Understand your progress. Plan your next step.</p>
+      </div>
+      <div class="avatar">S</div>
+    </header>
+
+    <div class="hero-row">
+      <section class="welcome">
+        <div>
+          <p class="eyebrow light">YOUR JOURNEY STARTS HERE</p>
+          <h2>Small progress adds up.</h2>
+          <p>Track your courses, calculate your GPA, and understand your academic performance.</p>
+        </div>
+        <div class="welcome-icon">✦</div>
+      </section>
+
+      <section class="stats">
+        <article class="stat-card">
+          <p>Current GPA</p>
+          <h2 id="gpaValue">0.00</h2>
+          <small>Based on entered grades</small>
+        </article>
+        <article class="stat-card">
+          <p>Courses recorded</p>
+          <h2 id="courseCount">0</h2>
+          <small>Across your course list</small>
+        </article>
+        <article class="stat-card">
+          <p>Total credit hours</p>
+          <h2 id="creditCount">0</h2>
+          <small>Credits entered so far</small>
+        </article>
+      </section>
+    </div>
+
+    <section class="content-grid">
+      <article class="panel" id="courses">
+        <div class="panel-heading">
+          <div>
+            <h2>Add a course</h2>
+            <p class="muted">Enter your course and grade details.</p>
+          </div>
+        </div>
+
+        <form id="courseForm">
+          <label for="courseName">Course name</label>
+          <input id="courseName" type="text" placeholder="e.g. Introduction to Programming" maxlength="100" required>
+
+          <div class="form-row">
+            <div>
+              <label for="credits">Credit hours</label>
+              <input id="credits" type="number" min="1" max="30" step="1" value="3" required>
+            </div>
+            <div>
+              <label for="semester">Semester</label>
+              <input id="semester" type="text" placeholder="e.g. Fall 2026" maxlength="30" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div>
+              <label for="grade">Grade points</label>
+              <select id="grade" required>
+                <option value="4">A+ (4.0)</option>
+                <option value="4">A (4.0)</option>
+                <option value="3.75">A- (3.75)</option>
+                <option value="3.5">B+ (3.5)</option>
+                <option value="3">B (3.0)</option>
+                <option value="2.75">B- (2.75)</option>
+                <option value="2.5">C+ (2.5)</option>
+                <option value="2">C (2.0)</option>
+                <option value="1.75">C- (1.75)</option>
+                <option value="1.5">D (1.5)</option>
+                <option value="0">F (0.0)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="primary-button" id="submitCourseButton" type="submit">+ Add course</button>
+            <button class="secondary-button hidden" id="cancelEditButton" type="button">Cancel edit</button>
+          </div>
+          <p id="formMessage" class="form-message" aria-live="polite"></p>
+        </form>
+      </article>
+
+      <article class="panel" id="progress">
+        <div class="panel-heading">
+          <div>
+            <h2>Grade distribution</h2>
+            <p class="muted">Your recorded course grades.</p>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="gradeChart" aria-label="Grade distribution chart"></canvas>
+          <p id="emptyChart" class="empty-chart">Add a course to see your chart.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel course-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Your courses</h2>
+          <p class="muted">Review and manage your recorded courses.</p>
+        </div>
+        <span class="pill" id="tableCount">0 courses</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Semester</th>
+              <th>Credits</th>
+              <th>Grade points</th>
+              <th>Weighted points</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="courseTable">
+            <tr><td colspan="6" class="empty-state">No courses yet. Add your first course above.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="footnote">GPA = total (grade points × credits) ÷ total credits. Confirm your university's grading rules before relying on this estimate.</p>
+    </section>
+
+    <footer>Student Success System · Built to support better academic planning</footer>
+  </main>
+</body>
+</html>
