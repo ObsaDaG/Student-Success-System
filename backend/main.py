@@ -2,9 +2,10 @@ from fastapi import FastAPI
 
 from pydantic import BaseModel, Field
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
 
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,6 +19,12 @@ class Course(BaseModel):
     credits: int = Field(ge=1, le=30)
     semester: str = Field(min_length=1)
     grade: float = Field(ge=0, le=4)
+
+
+courses_db = {}
+next_course_id = 1
+
+
 
 @app.get("/")
 def home():
@@ -34,8 +41,13 @@ def get_courses(student_id: int):
     }
 @app.post("/api/students/{student_id}/courses")
 def add_course(student_id: int, course: Course):
+    global next_course_id
+    saved = course.model_dump()
+    saved["course_id"] = next_course_id
+    courses_db.setdefault(student_id, []).append(saved)
+    next_course_id += 1
     return {
+        "message": "Course added successfully",
         "student_id": student_id,
-        "course": course.model_dump(),
-        "message": "Course added successfully"
+        "course": saved
     }
