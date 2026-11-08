@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import create_tables
+from database import create_tables , get_connection
 
 app = FastAPI()
 
@@ -24,8 +24,7 @@ class Course(BaseModel):
     grade: float = Field(ge=0, le=4)
 
 
-courses_db = {}
-next_course_id = 1
+
 
 
 
@@ -35,20 +34,28 @@ def home():
 
 @app.get("/api/students/{student_id}/courses")
 def get_courses(student_id: int):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM courses WHERE student_id = ?",
+        (student_id,)
+    ).fetchall()
+    conn.close()
     return {
         "student_id": student_id,
-        "courses": [
-            {"course_id": 1, "course_name": "Economics", "credits": 3, "grade": 3.5, "semester": "Fall 2026"},
-            {"course_id": 2, "course_name": "Math", "credits": 3, "grade": 3.25, "semester": "Fall 2026"}
-        ]
+        "courses": [dict(row) for row in rows]
     }
 @app.post("/api/students/{student_id}/courses")
 def add_course(student_id: int, course: Course):
-    global next_course_id
+    conn = get_connection()
+    cursor = conn.execute(
+        "INSERT INTO courses (student_id, course_name, credits, grade, semester) VALUES (?, ?, ?, ?, ?)",
+        (student_id, course.course_name, course.credits, course.grade, course.semester)
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
     saved = course.model_dump()
-    saved["course_id"] = next_course_id
-    courses_db.setdefault(student_id, []).append(saved)
-    next_course_id += 1
+    saved["course_id"] = new_id
     return {
         "message": "Course added successfully",
         "student_id": student_id,

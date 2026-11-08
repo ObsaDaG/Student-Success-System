@@ -25,8 +25,14 @@ def create_tables():
         course_name TEXT NOT NULL,
         credits INTEGER NOT NULL,
         semester TEXT NOT NULL,
+        grade REAL NOT NULL,
         FOREIGN KEY (student_id) REFERENCES students(student_id) 
     )
+    """)
+
+    conn.execute("""
+        INSERT OR IGNORE INTO students (student_id, name, email)
+        VALUES (1, 'Test Student', 'test@example.com')
     """)
 
     conn.commit()
