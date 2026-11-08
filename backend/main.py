@@ -4,8 +4,11 @@ from pydantic import BaseModel, Field
 
 from fastapi.middleware.cors import CORSMiddleware
 
+from database import create_tables
+
 app = FastAPI()
 
+create_tables()
 
 app.add_middleware(
     CORSMiddleware,
