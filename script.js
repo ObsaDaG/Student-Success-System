@@ -225,7 +225,7 @@ function renderChart() {
   });
 }
 
-form.addEventListener("submit", event => {
+form.addEventListener("submit", async event => {
   event.preventDefault();
   message.style.color = "#b42318";
   message.textContent = "";
@@ -263,6 +263,23 @@ form.addEventListener("submit", event => {
     renderDashboard();
     return;
   }
+
+  try {
+  const response = await fetch("http://127.0.0.1:8000/api/students/1/courses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      course_name: name,
+      credits,
+      semester,
+      grade
+    })
+  });
+  const data = await response.json();
+  console.log("Python replied:", data);
+} catch (error) {
+  console.log("Could not reach the backend:", error);
+}
 
   courses.push({
     id: createCourseId(),
