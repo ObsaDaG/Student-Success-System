@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from pydantic import BaseModel, Field
 
@@ -81,3 +81,38 @@ def get_cumulative_gpa(student_id: int):
         "total_credits": sum(course["credits"] for course in courses),
         "course_count": len(courses)
     }
+
+@app.get("/api/students/{student_id}/gpa/semesters/{semester}")
+def get_semester_gpa(student_id: int, semester: str):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT credits, grade FROM courses WHERE student_id = ? AND semester = ?",
+        (student_id, semester)
+    ).fetchall()
+    conn.close()
+
+    courses = [dict(row) for row in rows]
+
+    return {
+        "student_id": student_id,
+        "semester": semester,
+        "gpa": calculate_gpa(courses),
+        "total_credits":sum(course["credits"] for course in courses),
+        "course_count": len(courses)
+    }
+
+@app.delete("/api/students/{student_id}/courses/{course_id}")
+def delete_course(student_id: int, course_id: int):
+    conn = get_connection()
+    cursor = conn.execute(
+        "DELETE FROM courses WHERE course_id = ? AND student_id = ?",
+        (course_id, student_id)
+    )
+    conn.commit()
+    deleted = cursor.rowcount
+    conn.close()
+
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    return {"message": "Course deleted successfully", "course_id": course_id}
