@@ -116,3 +116,25 @@ def delete_course(student_id: int, course_id: int):
         raise HTTPException(status_code=404, detail="Course not found")
 
     return {"message": "Course deleted successfully", "course_id": course_id}
+
+@app.put("/api/students/{student_id}/courses/{course_id}")
+def update_course(student_id: int, course_id: int, course: Course):
+    conn = get_connection()
+    cursor = conn.execute(
+        "UPDATE courses SET course_name = ?, credits = ?, grade = ?, semester = ? WHERE course_id = ? AND student_id = ?",
+        (course.course_name, course.credits, course.grade, course.semester, course_id, student_id)
+    )
+    conn.commit()
+    updated = cursor.rowcount
+    conn.close()
+
+    if updated == 0:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    saved = course.model_dump()
+    saved["course_id"] = course_id
+    return {
+        "message": "Course updated successfully",
+        "student_id": student_id,
+        "course": saved
+    }
