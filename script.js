@@ -59,6 +59,28 @@ function saveCourses() {
   }
 }
 
+async function loadCoursesFromBackend() {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/api/students/1/courses");
+    const data = await response.json();
+
+    courses.length = 0;
+    data.courses.forEach(course => {
+      courses.push({
+        id: course.course_id,
+        name: course.course_name,
+        credits: course.credits,
+        semester: course.semester,
+        grade: course.grade
+      });
+    });
+
+    renderDashboard();
+  } catch (error) {
+    console.log("Could not load from backend:", error);
+  }
+}
+
 function calculateGPA(items) {
   const totalCredits = items.reduce((sum, course) => sum + course.credits, 0);
   if (totalCredits === 0) return 0;
@@ -265,40 +287,24 @@ form.addEventListener("submit", async event => {
   }
 
   try {
-  const response = await fetch("http://127.0.0.1:8000/api/students/1/courses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      course_name: name,
-      credits,
-      semester,
-      grade
-    })
-  });
-  const data = await response.json();
-  console.log("Python replied:", data);
-} catch (error) {
-  console.log("Could not reach the backend:", error);
-}
-
-  courses.push({
-    id: createCourseId(),
-    name,
-    credits,
-    semester,
-    grade
-  });
-
-  if (!saveCourses()) {
-    courses.pop();
+    const response = await fetch("http://127.0.0.1:8000/api/students/1/courses", {
+      method: "POST",
+      ...
+    });
+    if (!response.ok) {
+      message.textContent = "The server rejected this course.";
+      return;
+    }
+  } catch (error) {
+    message.textContent = "Could not reach the backend.";
     return;
   }
 
+  await loadCoursesFromBackend();
   form.reset();
   document.getElementById("credits").value = 3;
   message.style.color = "#18845b";
   message.textContent = "Course added successfully.";
-  renderDashboard();
 });
 
 cancelEditButton.addEventListener("click", () => {
@@ -308,3 +314,5 @@ cancelEditButton.addEventListener("click", () => {
 });
 
 renderDashboard();
+
+loadCoursesFromBackend();
