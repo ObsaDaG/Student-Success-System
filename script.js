@@ -108,22 +108,29 @@ function startEditCourse(id) {
   document.getElementById("courseName").focus();
 }
 
-function deleteCourse(id) {
-  const previousCourses = courses;
-  courses = courses.filter(course => course.id !== id);
+async function deleteCourse(id) {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/api/students/1/courses/${id}`, {
+      method: "DELETE"
+    });
+    if (!response.ok) {
+      message.style.color = "#b42318";
+      message.textContent = "Could not delete this course.";
+      return;
+    }
+  } catch (error) {
+    message.style.color = "#b42318";
+    message.textContent = "Could not reach the backend.";
+    return;
+  }
 
   if (editingCourseId === id) {
     resetFormState();
   }
 
-  if (!saveCourses()) {
-    courses = previousCourses;
-    return;
-  }
-
+  await loadCoursesFromBackend();
   message.style.color = "#18845b";
   message.textContent = "Course deleted.";
-  renderDashboard();
 }
 
 function renderDashboard() {
@@ -287,9 +294,15 @@ form.addEventListener("submit", async event => {
   }
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/students/1/courses", {
+const response = await fetch("http://127.0.0.1:8000/api/students/1/courses", {
       method: "POST",
-      ...
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        course_name: name,
+        credits,
+        semester,
+        grade
+      })
     });
     if (!response.ok) {
       message.textContent = "The server rejected this course.";
