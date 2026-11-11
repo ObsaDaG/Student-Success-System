@@ -270,26 +270,31 @@ form.addEventListener("submit", async event => {
     return;
   }
 
-  if (editingCourseId) {
-    const course = courses.find(item => item.id === editingCourseId);
-    if (!course) {
-      message.textContent = "Could not find the course to update.";
+      if (editingCourseId) {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/students/1/courses/${editingCourseId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course_name: name,
+          credits,
+          semester,
+          grade
+        })
+      });
+      if (!response.ok) {
+        message.textContent = "The server rejected this update.";
+        return;
+      }
+    } catch (error) {
+      message.textContent = "Could not reach the backend.";
       return;
     }
 
-    course.name = name;
-    course.credits = credits;
-    course.semester = semester;
-    course.grade = grade;
-
-    if (!saveCourses()) {
-      return;
-    }
-
+    resetFormState();
+    await loadCoursesFromBackend();
     message.style.color = "#18845b";
     message.textContent = "Course updated successfully.";
-    resetFormState();
-    renderDashboard();
     return;
   }
 
