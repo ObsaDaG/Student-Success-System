@@ -1,22 +1,15 @@
 
-const STORAGE_KEY = "student-success-courses";
 const form = document.getElementById("courseForm");
 const table = document.getElementById("courseTable");
 const message = document.getElementById("formMessage");
 const submitButton = document.getElementById("submitCourseButton");
 const cancelEditButton = document.getElementById("cancelEditButton");
 
-let courses = loadCourses();
+let courses = [];
 let chart = null;
 let editingCourseId = null;
 
-function createCourseId() {
-  if (window.crypto && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
 
-  return `course-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
 
 function resetFormState() {
   editingCourseId = null;
@@ -28,36 +21,9 @@ function resetFormState() {
   message.textContent = "";
 }
 
-function loadCourses() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(saved) ? saved.filter(course =>
-      course &&
-      typeof course.name === "string" &&
-      Number.isFinite(course.credits) &&
-      course.credits > 0 &&
-      Number.isFinite(course.grade) &&
-      course.grade >= 0 &&
-      course.grade <= 4.0
-    ).map(course => ({
-      ...course,
-      grade: course.grade === 4.3 ? 4 : course.grade,
-      semester: typeof course.semester === "string" ? course.semester.trim() : ""
-    })) : [];
-  } catch {
-    return [];
-  }
-}
 
-function saveCourses() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(courses));
-    return true;
-  } catch {
-    message.textContent = "Could not save data in this browser.";
-    return false;
-  }
-}
+
+
 
 async function loadCoursesFromBackend() {
   try {
@@ -76,8 +42,9 @@ async function loadCoursesFromBackend() {
     });
 
     renderDashboard();
-  } catch (error) {
-    console.log("Could not load from backend:", error);
+    } catch (error) {
+    message.style.color = "#b42318";
+    message.textContent = "Could not load courses. Is the backend running?";
   }
 }
 
