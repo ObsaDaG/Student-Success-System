@@ -8,7 +8,7 @@ from database import create_tables , get_connection
 
 from gpa import calculate_gpa
 
-from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend
+from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend, grade_distribution
 
 app = FastAPI()
 
@@ -160,5 +160,6 @@ def get_analytics(student_id: int):
         "cumulative_gpa": calculate_gpa(courses),
         "strongest_and_weakest": strongest_and_weakest(courses),
         "semester_gpas": semester_gpas,
-        "trend": gpa_trend(semester_gpas)
+        "trend": gpa_trend(semester_gpas),
+        "grade_distribution": grade_distribution(courses)
     }
