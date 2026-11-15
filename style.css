@@ -169,3 +169,31 @@ footer { text-align: center; color: #929daf; font-size: 10px; padding: 12px; }
   .form-actions { flex-direction: column; }
   .secondary-button { width: 100%; }
 }
+
+.insights {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.semester-panel {
+  grid-column: 1 / -1;
+}
+
+.semester-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.semester-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+@media (max-width: 800px) {
+  .insights {
+    grid-template-columns: 1fr;
+  }
+}

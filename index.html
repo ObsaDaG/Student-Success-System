@@ -15,7 +15,7 @@
     <p class="nav-label">WORKSPACE</p>
     <a class="active" href="#dashboard">▦ Dashboard</a>
     <a href="#courses">▤ My Courses</a>
-    <a href="#progress">↗ Academic Progress</a>
+    <a href="#progression">↗ Academic Progress</a>
     <div class="sidebar-bottom">Your academic journey, organized.</div>
   </aside>
 
@@ -57,6 +57,28 @@
         </article>
       </section>
     </div>
+
+        <section class="insights" id="progression">
+      <article class="stat-card">
+        <p>GPA trend</p>
+        <h2 id="trendValue">-</h2>
+        <small id="trendNote">Compared with your previous semester</small>
+      </article>
+      <article class="stat-card">
+        <p>Strongest course</p>
+        <h2 id="strongestValue">-</h2>
+        <small id="strongestNote"></small>
+      </article>
+      <article class="stat-card">
+        <p>Needs most attention</p>
+        <h2 id="weakestValue">-</h2>
+        <small id="weakestNote"></small>
+      </article>
+      <article class="panel semester-panel">
+        <h2>GPA by semester</h2>
+        <ul id="semesterList" class="semester-list"></ul>
+      </article>
+    </section>
 
     <section class="content-grid">
       <article class="panel" id="courses">

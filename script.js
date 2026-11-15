@@ -300,4 +300,53 @@ cancelEditButton.addEventListener("click", () => {
 
 renderDashboard();
 
+loadAnalytics();
+
 loadCoursesFromBackend();
+
+function describeCourses(list) {
+  if (list.length === 0) {
+    return { title: "-", note: "" };
+  }
+  const extra = list.length > 1 ? ` +${list.length - 1} more` : "";
+  return {
+    title: list[0].course_name + extra,
+    note: `Grade ${list[0].grade.toFixed(2)}`
+  };
+}
+
+async function loadAnalytics() {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/api/students/1/analytics");
+    const data = await response.json();
+
+    const trendLabels = {
+      "improving": "Improving ↑",
+      "declining": "Declining ↓",
+      "stable": "Stable →",
+      "not enough data": "Not enough data"
+    };
+    document.getElementById("trendValue").textContent = trendLabels[data.trend] || "-";
+    document.getElementById("trendNote").textContent =
+      data.trend === "not enough data"
+        ? "Add a second semester to see your trend"
+        : "Compared with your previous semester";
+
+    const best = describeCourses(data.strongest_and_weakest.strongest);
+    const worst = describeCourses(data.strongest_and_weakest.weakest);
+    document.getElementById("strongestValue").textContent = best.title;
+    document.getElementById("strongestNote").textContent = best.note;
+    document.getElementById("weakestValue").textContent = worst.title;
+    document.getElementById("weakestNote").textContent = worst.note;
+
+    const list = document.getElementById("semesterList");
+    list.replaceChildren();
+    data.semester_gpas.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = `${item.semester}: ${item.gpa.toFixed(2)}`;
+      list.appendChild(li);
+    });
+  } catch (error) {
+    console.log("Could not load analytics:", error);
+  }
+}
