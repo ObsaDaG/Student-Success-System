@@ -8,6 +8,8 @@ from database import create_tables , get_connection
 
 from gpa import calculate_gpa
 
+from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend
+
 app = FastAPI()
 
 create_tables()
@@ -137,4 +139,26 @@ def update_course(student_id: int, course_id: int, course: Course):
         "message": "Course updated successfully",
         "student_id": student_id,
         "course": saved
+    }
+
+@app.get("/api/students/{student_id}/analytics")
+def get_analytics(student_id: int):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT course_name, credits, grade, semester FROM courses WHERE student_id = ?",
+        (student_id,)
+    ).fetchall()
+    conn.close()
+
+    courses = [dict(row) for row in rows]
+    semester_gpas = gpa_by_semester(courses)
+
+    return {
+        "student_id": student_id,
+        "course_count": len(courses),
+        "total_credits": sum(course["credits"] for course in courses),
+        "cumulative_gpa": calculate_gpa(courses),
+        "strongest_and_weakest": strongest_and_weakest(courses),
+        "semester_gpas": semester_gpas,
+        "trend": gpa_trend(semester_gpas)
     }
