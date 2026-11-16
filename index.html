@@ -59,25 +59,27 @@
     </div>
 
         <section class="insights" id="progression">
-      <article class="stat-card">
-        <p>GPA trend</p>
-        <h2 id="trendValue">-</h2>
-        <small id="trendNote">Compared with your previous semester</small>
-      </article>
-      <article class="stat-card">
+      <article class="stat-card clickable" id="strongestCard" role="button" tabindex="0" aria-expanded="false" aria-controls="strongestDrop">
         <p>Strongest course</p>
         <h2 id="strongestValue">-</h2>
         <small id="strongestNote"></small>
+        <span class="expand-hint">Click to see all courses ▾</span>
+        <ul class="course-drop" id="strongestDrop" hidden></ul>
       </article>
-      <article class="stat-card">
+
+            <article class="stat-card clickable" id="weakestCard" role="button" tabindex="0" aria-expanded="false" aria-controls="weakestDrop">
         <p>Needs most attention</p>
         <h2 id="weakestValue">-</h2>
         <small id="weakestNote"></small>
+        <span class="expand-hint">Click to see all courses ▾</span>
+        <ul class="course-drop" id="weakestDrop" hidden></ul>
       </article>
+
       <article class="panel semester-panel">
         <h2>GPA by semester</h2>
         <ul id="semesterList" class="semester-list"></ul>
       </article>
+    
     </section>
 
         <section class="panel advisor" id="advisor">

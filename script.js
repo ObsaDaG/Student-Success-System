@@ -302,10 +302,94 @@ renderDashboard();
 
 loadAnalytics();
 
+updateCourseDrops();
+
 loadCoursesFromBackend();
 
 loadAdvisor();
 
+function fillDrop(listId, sortedCourses, extremeGrade, badgeText) {
+  const list = document.getElementById(listId);
+  list.replaceChildren();
+
+  if (sortedCourses.length === 0) {
+    const empty = document.createElement("li");
+    empty.textContent = "No courses yet.";
+    list.appendChild(empty);
+    return;
+  }
+
+  sortedCourses.forEach(course => {
+    const li = document.createElement("li");
+    if (course.grade === extremeGrade) {
+      li.className = "top";
+    }
+
+    const name = document.createElement("span");
+    name.className = "drop-name";
+    name.textContent = course.name;
+    if (course.grade === extremeGrade) {
+      const badge = document.createElement("span");
+      badge.className = "drop-badge";
+      badge.textContent = badgeText;
+      name.appendChild(badge);
+    }
+
+    const grade = document.createElement("span");
+    grade.className = "drop-grade";
+    grade.textContent = course.grade.toFixed(2);
+
+    const meta = document.createElement("span");
+    meta.className = "drop-meta";
+    meta.textContent = `${course.semester || "No semester"} · ${course.credits} credits`;
+
+    li.append(name, grade, meta);
+    list.appendChild(li);
+  });
+}
+
+function updateCourseDrops() {
+  const bestFirst = [...courses].sort((a, b) => b.grade - a.grade || b.credits - a.credits);
+  const worstFirst = [...courses].sort((a, b) => a.grade - b.grade || b.credits - a.credits);
+
+  const best = bestFirst.length ? bestFirst[0].grade : null;
+  const worst = worstFirst.length ? worstFirst[0].grade : null;
+
+  fillDrop("strongestDrop", bestFirst, best, "Top");
+  fillDrop("weakestDrop", worstFirst, worst, "Lowest");
+}
+
+function setupCardToggle(cardId, dropId) {
+  const card = document.getElementById(cardId);
+  const drop = document.getElementById(dropId);
+
+  function toggle() {
+    const isOpen = card.getAttribute("aria-expanded") === "true";
+    card.setAttribute("aria-expanded", String(!isOpen));
+    card.classList.toggle("open", !isOpen);
+    drop.hidden = isOpen;
+  }
+
+  card.addEventListener("click", event => {
+    if (event.target.closest(".course-drop")) {
+      return;
+    }
+    toggle();
+  });
+
+  card.addEventListener("keydown", event => {
+    if (event.target !== card) {
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggle();
+    }
+  });
+}
+
+setupCardToggle("strongestCard", "strongestDrop");
+setupCardToggle("weakestCard", "weakestDrop");
 
 const ADVISOR_URL = "http://127.0.0.1:8000/api/students/1/advisor";
 
