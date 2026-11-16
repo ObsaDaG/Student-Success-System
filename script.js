@@ -304,6 +304,116 @@ loadAnalytics();
 
 loadCoursesFromBackend();
 
+loadAdvisor();
+
+
+const ADVISOR_URL = "http://127.0.0.1:8000/api/students/1/advisor";
+
+function sourceLabel(source) {
+  return source === "ai" ? "AI-generated" : "Rule-based";
+}
+
+function addLogEntry(kind, text) {
+  const log = document.getElementById("advisorLog");
+  const entry = document.createElement("div");
+  entry.className = `log-entry ${kind}`;
+  entry.textContent = text;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+  return entry;
+}
+
+function renderSuggestions(questions) {
+  const box = document.getElementById("advisorSuggestions");
+  box.replaceChildren();
+  questions.forEach(item => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "suggestion";
+    button.textContent = item.text;
+    button.addEventListener("click", () => askAdvisor(item.text));
+    box.appendChild(button);
+  });
+}
+
+async function loadAdvisor() {
+  const list = document.getElementById("advisorList");
+  const badge = document.getElementById("advisorSource");
+
+  try {
+    const response = await fetch(ADVISOR_URL);
+    if (!response.ok) {
+      throw new Error("Advisor request failed");
+    }
+    const data = await response.json();
+
+    list.replaceChildren();
+    data.recommendations.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item.message;
+      list.appendChild(li);
+    });
+    badge.textContent = sourceLabel(data.source);
+    renderSuggestions(data.suggested_questions);
+  } catch (error) {
+    badge.textContent = "-";
+    list.replaceChildren();
+    const li = document.createElement("li");
+    li.textContent = "Could not load recommendations. Is the backend running?";
+    list.appendChild(li);
+  }
+}
+
+async function askAdvisor(question) {
+  const text = question.trim();
+  if (!text) {
+    return;
+  }
+
+  const input = document.getElementById("advisorInput");
+  const send = document.getElementById("advisorSend");
+  const buttons = document.querySelectorAll(".suggestion");
+
+  addLogEntry("question", text);
+  const pending = addLogEntry("answer", "Thinking...");
+  input.value = "";
+  send.disabled = true;
+  buttons.forEach(button => { button.disabled = true; });
+
+  try {
+    const response = await fetch(`${ADVISOR_URL}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: text })
+    });
+    if (!response.ok) {
+      throw new Error("Request failed");
+    }
+    const data = await response.json();
+
+    pending.textContent = data.answer;
+    const tag = document.createElement("small");
+    tag.className = "log-source";
+    tag.textContent = sourceLabel(data.source);
+    pending.appendChild(tag);
+  } catch (error) {
+    pending.textContent = "Could not get an answer. Please try again.";
+  } finally {
+    send.disabled = false;
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
+
+document.getElementById("advisorSend").addEventListener("click", () => {
+  askAdvisor(document.getElementById("advisorInput").value);
+});
+
+document.getElementById("advisorInput").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    askAdvisor(event.target.value);
+  }
+});
+
 function describeCourses(list) {
   if (list.length === 0) {
     return { title: "-", note: "" };
@@ -350,3 +460,4 @@ async function loadAnalytics() {
     console.log("Could not load analytics:", error);
   }
 }
+

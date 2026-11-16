@@ -80,6 +80,30 @@
       </article>
     </section>
 
+        <section class="panel advisor" id="advisor">
+      <div class="panel-heading">
+        <div>
+          <h2>AI Academic Advisor</h2>
+          <p class="muted">Recommendations based on your courses and grades.</p>
+        </div>
+        <span class="source-badge" id="advisorSource">-</span>
+      </div>
+
+      <ul class="advisor-list" id="advisorList">
+        <li>Loading recommendations...</li>
+      </ul>
+
+      <h3 class="advisor-subtitle">Ask the advisor</h3>
+      <div class="advisor-suggestions" id="advisorSuggestions"></div>
+
+      <div class="advisor-input">
+        <input type="text" id="advisorInput" maxlength="300" placeholder="Type your question..." autocomplete="off">
+        <button type="button" id="advisorSend">Ask</button>
+      </div>
+
+      <div class="advisor-log" id="advisorLog" aria-live="polite"></div>
+    </section>
+
     <section class="content-grid">
       <article class="panel" id="courses">
         <div class="panel-heading">

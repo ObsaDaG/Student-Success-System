@@ -10,6 +10,7 @@ from gpa import calculate_gpa
 
 from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend, grade_distribution
 
+from advisor import get_recommendations, answer_question, SUGGESTED_QUESTIONS
 app = FastAPI()
 
 create_tables()
@@ -27,7 +28,40 @@ class Course(BaseModel):
     semester: str = Field(min_length=1)
     grade: float = Field(ge=0, le=4)
 
+class AskRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=300)
 
+
+def load_courses(student_id):
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT course_name, credits, grade, semester FROM courses WHERE student_id = ?",
+        (student_id,)
+    ).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/students/{student_id}/advisor")
+def get_advisor(student_id: int):
+    courses = load_courses(student_id)
+    source, recommendations = get_recommendations(courses)
+    return {
+        "student_id": student_id,
+        "source": source,
+        "recommendations": recommendations,
+        "suggested_questions": SUGGESTED_QUESTIONS
+    }
+
+
+@app.post("/api/students/{student_id}/advisor/ask")
+def ask_advisor(student_id: int, request: AskRequest):
+    courses = load_courses(student_id)
+    source, answer = answer_question(courses, request.question)
+    return {
+        "student_id": student_id,
+        "source": source,
+        "answer": answer
+    }
 
 
 
