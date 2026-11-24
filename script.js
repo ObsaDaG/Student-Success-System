@@ -1,3 +1,8 @@
+const API_BASE =
+  window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost"
+    ? "http://127.0.0.1:8000"
+    : "https://YOUR-BACKEND-URL";
+
 
 const form = document.getElementById("courseForm");
 const table = document.getElementById("courseTable");
@@ -130,6 +135,8 @@ function renderDashboard() {
         const cell = document.createElement("td");
         cell.textContent = value;
         row.appendChild(cell);
+        renderChart();
+  updateCourseDrops();  
       });
 
       const actionCell = document.createElement("td");
@@ -298,42 +305,34 @@ cancelEditButton.addEventListener("click", () => {
   message.textContent = "Edit cancelled.";
 });
 
-renderDashboard();
 
-loadAnalytics();
+function fillDrop(listId, list, note) {
+  const dropList = document.getElementById(listId);
+  if (!dropList) {
+    return;
+  }
+  dropList.replaceChildren();
 
-updateCourseDrops();
-
-loadCoursesFromBackend();
-
-loadAdvisor();
-
-function fillDrop(listId, sortedCourses, extremeGrade, badgeText) {
-  const list = document.getElementById(listId);
-  list.replaceChildren();
-
-  if (sortedCourses.length === 0) {
+  if (list.length === 0) {
     const empty = document.createElement("li");
     empty.textContent = "No courses yet.";
-    list.appendChild(empty);
+    dropList.appendChild(empty);
     return;
   }
 
-  sortedCourses.forEach(course => {
+  if (note) {
+    const noteItem = document.createElement("li");
+    noteItem.className = "drop-note";
+    noteItem.textContent = note;
+    dropList.appendChild(noteItem);
+  }
+
+  list.forEach(course => {
     const li = document.createElement("li");
-    if (course.grade === extremeGrade) {
-      li.className = "top";
-    }
 
     const name = document.createElement("span");
     name.className = "drop-name";
     name.textContent = course.name;
-    if (course.grade === extremeGrade) {
-      const badge = document.createElement("span");
-      badge.className = "drop-badge";
-      badge.textContent = badgeText;
-      name.appendChild(badge);
-    }
 
     const grade = document.createElement("span");
     grade.className = "drop-grade";
@@ -344,19 +343,37 @@ function fillDrop(listId, sortedCourses, extremeGrade, badgeText) {
     meta.textContent = `${course.semester || "No semester"} · ${course.credits} credits`;
 
     li.append(name, grade, meta);
-    list.appendChild(li);
+    dropList.appendChild(li);
   });
 }
 
 function updateCourseDrops() {
-  const bestFirst = [...courses].sort((a, b) => b.grade - a.grade || b.credits - a.credits);
-  const worstFirst = [...courses].sort((a, b) => a.grade - b.grade || b.credits - a.credits);
+  console.log("updateCourseDrops sees", courses.length, "courses:", JSON.stringify(courses));
 
-  const best = bestFirst.length ? bestFirst[0].grade : null;
-  const worst = worstFirst.length ? worstFirst[0].grade : null;
+  if (courses.length === 0) {
+    fillDrop("strongestDrop", [], "");
+    fillDrop("weakestDrop", [], "");
+    return;
+  }
 
-  fillDrop("strongestDrop", bestFirst, best, "Top");
-  fillDrop("weakestDrop", worstFirst, worst, "Lowest");
+  const grades = courses.map(course => Number(course.grade));
+  const best = Math.max(...grades);
+  const worst = Math.min(...grades);
+  console.log("best grade:", best, "worst grade:", worst);
+
+  const strongest = courses
+    .filter(course => Number(course.grade) === best)
+    .sort((a, b) => b.credits - a.credits);
+  const weakest = courses
+    .filter(course => Number(course.grade) === worst)
+    .sort((a, b) => b.credits - a.credits);
+
+  const sameNote = best === worst && courses.length > 1
+    ? "All your courses share the same grade, so each one is both the strongest and the weakest."
+    : "";
+
+  fillDrop("strongestDrop", strongest, sameNote);
+  fillDrop("weakestDrop", weakest, sameNote);
 }
 
 function setupCardToggle(cardId, dropId) {
@@ -514,6 +531,8 @@ async function loadAnalytics() {
     const response = await fetch("http://127.0.0.1:8000/api/students/1/analytics");
     const data = await response.json();
 
+     updateCourseDrops();
+
     const trendLabels = {
       "improving": "Improving ↑",
       "declining": "Declining ↓",
@@ -545,3 +564,63 @@ async function loadAnalytics() {
   }
 }
 
+const sidebarToggle = document.getElementById("sidebarToggle");
+const sidebarBackdrop = document.getElementById("sidebarBackdrop");
+const mobileQuery = window.matchMedia("(max-width: 768px)");
+
+function setSidebar(collapsed, save = true) {
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+  if (save && !mobileQuery.matches) {
+    try {
+      localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0");
+    } catch (e) {}
+  }
+}
+
+function applyDefaultSidebar() {
+  if (mobileQuery.matches) {
+    setSidebar(true, false);          // closed by default on phones
+  } else {
+    let saved = false;
+    try {
+      saved = localStorage.getItem("sidebarCollapsed") === "1";
+    } catch (e) {}
+    setSidebar(saved, false);
+  }
+}
+
+sidebarToggle.addEventListener("click", () => {
+  setSidebar(!document.body.classList.contains("sidebar-collapsed"));
+});
+
+sidebarBackdrop.addEventListener("click", () => setSidebar(true));
+
+// on mobile, close the sidebar after choosing a section
+document.querySelectorAll(".sidebar a").forEach(link => {
+  link.addEventListener("click", event => {
+    const id = link.getAttribute("href");
+    const target = id && id.startsWith("#") ? document.querySelector(id) : null;
+    if (!target) return;
+
+    event.preventDefault();
+
+    // update the active link highlight
+    document.querySelectorAll(".sidebar a").forEach(a => a.classList.remove("active"));
+    link.classList.add("active");
+
+    if (mobileQuery.matches) setSidebar(true);
+
+    // wait one frame so the sidebar starts closing, then scroll
+    requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      history.replaceState(null, "", id);
+    });
+  });
+});
+
+
+renderDashboard();
+loadAnalytics();
+loadCoursesFromBackend();
+loadAdvisor();

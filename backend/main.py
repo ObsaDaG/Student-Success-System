@@ -85,6 +85,14 @@ def get_courses(student_id: int):
 @app.post("/api/students/{student_id}/courses")
 def add_course(student_id: int, course: Course):
     conn = get_connection()
+    student = conn.execute(
+        "SELECT 1 FROM students WHERE student_id = ?",
+        (student_id,)
+    ).fetchone()
+    if student is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Student not found")
+
     cursor = conn.execute(
         "INSERT INTO courses (student_id, course_name, credits, grade, semester) VALUES (?, ?, ?, ?, ?)",
         (student_id, course.course_name, course.credits, course.grade, course.semester)
@@ -92,6 +100,7 @@ def add_course(student_id: int, course: Course):
     conn.commit()
     new_id = cursor.lastrowid
     conn.close()
+
     saved = course.model_dump()
     saved["course_id"] = new_id
     return {
@@ -99,7 +108,6 @@ def add_course(student_id: int, course: Course):
         "student_id": student_id,
         "course": saved
     }
-
 @app.get("/api/students/{student_id}/gpa/cumulative")
 def get_cumulative_gpa(student_id: int):
     conn = get_connection()
