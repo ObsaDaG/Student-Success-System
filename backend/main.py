@@ -1,18 +1,13 @@
-from fastapi import FastAPI, HTTPException
+import os
 
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from fastapi.middleware.cors import CORSMiddleware
-
-from database import create_tables , get_connection
-
+from database import create_tables, get_connection
 from gpa import calculate_gpa
-
 from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend, grade_distribution
-
 from advisor import get_recommendations, answer_question, SUGGESTED_QUESTIONS
-
-import os
 
 app = FastAPI()
 
@@ -28,7 +23,6 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
-)
 )
 
 class Course(BaseModel):
