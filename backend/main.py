@@ -11,15 +11,24 @@ from gpa import calculate_gpa
 from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend, grade_distribution
 
 from advisor import get_recommendations, answer_question, SUGGESTED_QUESTIONS
+
+import os
+
 app = FastAPI()
 
 create_tables()
 
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://127.0.0.1:5500,http://localhost:5500"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5500", "http://localhost:5500"],
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
+)
 )
 
 class Course(BaseModel):

@@ -32,7 +32,7 @@ function resetFormState() {
 
 async function loadCoursesFromBackend() {
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/students/1/courses");
+    const response = await fetch(`${API_BASE}/api/students/1/courses`);
     const data = await response.json();
 
     courses.length = 0;
@@ -82,7 +82,7 @@ function startEditCourse(id) {
 
 async function deleteCourse(id) {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/students/1/courses/${id}`, {
+    const response = await fetch(`${API_BASE}/api/students/1/courses/${id}`, {
       method: "DELETE"
     });
     if (!response.ok) {
@@ -246,7 +246,7 @@ form.addEventListener("submit", async event => {
 
       if (editingCourseId) {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/students/1/courses/${editingCourseId}`, {
+      const response = await fetch(`${API_BASE}/api/students/1/courses/${editingCourseId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -273,7 +273,7 @@ form.addEventListener("submit", async event => {
   }
 
   try {
-const response = await fetch("http://127.0.0.1:8000/api/students/1/courses", {
+const response = await fetch(`${API_BASE}/api/students/1/courses`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -408,7 +408,7 @@ function setupCardToggle(cardId, dropId) {
 setupCardToggle("strongestCard", "strongestDrop");
 setupCardToggle("weakestCard", "weakestDrop");
 
-const ADVISOR_URL = "http://127.0.0.1:8000/api/students/1/advisor";
+const ADVISOR_URL = `${API_BASE}/api/students/1/advisor`;
 
 function sourceLabel(source) {
   return source === "ai" ? "AI-generated" : "Rule-based";
@@ -528,7 +528,7 @@ function describeCourses(list) {
 
 async function loadAnalytics() {
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/students/1/analytics");
+    const response = await fetch(`${API_BASE}/api/students/1/analytics`);
     const data = await response.json();
 
      updateCourseDrops();
