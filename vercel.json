@@ -1,7 +1,0 @@
-@"
-{
-  "framework": null,
-  "buildCommand": null,
-  "outputDirectory": "public"
-}
-"@ | Set-Content -Encoding ascii vercel.json
