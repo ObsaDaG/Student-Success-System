@@ -3,6 +3,59 @@ const API_BASE =
     ? "http://127.0.0.1:8000"
     : "https://student-success-api-hllh.onrender.com";
 
+    const SESSION_KEY = "student-success-session";
+let session = null;
+let sessionPromise = null;
+
+function forgetSession() {
+  session = null;
+  sessionPromise = null;
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch (error) {}
+}
+
+async function startSession() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    if (saved && saved.student_id && saved.token) {
+      session = saved;
+      return;
+    }
+  } catch (error) {}
+
+  const response = await fetch(`${API_BASE}/api/session`, { method: "POST" });
+  if (!response.ok) {
+    throw new Error("Could not start a session");
+  }
+  session = await response.json();
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch (error) {}
+}
+
+function ensureSession() {
+  if (!sessionPromise) {
+    sessionPromise = startSession();
+  }
+  return sessionPromise;
+}
+
+async function apiFetch(path, options = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await ensureSession();
+    const response = await fetch(`${API_BASE}/api/students/${session.student_id}${path}`, {
+      ...options,
+      headers: { ...(options.headers || {}), "X-Session-Token": session.token }
+    });
+    if (response.status !== 403) {
+      return response;
+    }
+    forgetSession();
+  }
+  throw new Error("Could not start a session");
+}
+
 
 const form = document.getElementById("courseForm");
 const table = document.getElementById("courseTable");
@@ -32,7 +85,7 @@ function resetFormState() {
 
 async function loadCoursesFromBackend() {
   try {
-    const response = await fetch(`${API_BASE}/api/students/1/courses`);
+    const response = await apiFetch("/courses");
     const data = await response.json();
 
     courses.length = 0;
@@ -82,7 +135,7 @@ function startEditCourse(id) {
 
 async function deleteCourse(id) {
   try {
-    const response = await fetch(`${API_BASE}/api/students/1/courses/${id}`, {
+    const response = await apiFetch(`/courses/${id}`, {
       method: "DELETE"
     });
     if (!response.ok) {
@@ -246,7 +299,7 @@ form.addEventListener("submit", async event => {
 
       if (editingCourseId) {
     try {
-      const response = await fetch(`${API_BASE}/api/students/1/courses/${editingCourseId}`, {
+      const response =await apiFetch(/courses/${editingCourseId}, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -273,7 +326,7 @@ form.addEventListener("submit", async event => {
   }
 
   try {
-const response = await fetch(`${API_BASE}/api/students/1/courses`, {
+const response = await apiFetch("/courses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -408,7 +461,7 @@ function setupCardToggle(cardId, dropId) {
 setupCardToggle("strongestCard", "strongestDrop");
 setupCardToggle("weakestCard", "weakestDrop");
 
-const ADVISOR_URL = `${API_BASE}/api/students/1/advisor`;
+const ADVISOR_URL = await apiFetch("/advisor")
 
 function sourceLabel(source) {
   return source === "ai" ? "AI-generated" : "Rule-based";
@@ -442,7 +495,7 @@ async function loadAdvisor() {
   const badge = document.getElementById("advisorSource");
 
   try {
-    const response = await fetch(ADVISOR_URL);
+    const response = await apiFetch("/advisor");
     if (!response.ok) {
       throw new Error("Advisor request failed");
     }
@@ -528,7 +581,7 @@ function describeCourses(list) {
 
 async function loadAnalytics() {
   try {
-    const response = await fetch(`${API_BASE}/api/students/1/analytics`);
+    const response = await apiFetch("/analytics");
     const data = await response.json();
 
      updateCourseDrops();

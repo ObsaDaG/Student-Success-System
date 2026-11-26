@@ -1,10 +1,13 @@
 import os
+import secrets
 import sqlite3
+import uuid
 
 DB_NAME = os.getenv(
     "DB_PATH",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "student_success.db")
 )
+MAX_SESSIONS = int(os.getenv("MAX_SESSIONS", "500"))
 
 DEMO_COURSES = [
     ("Introduction to Programming", 3, 3.5, "Fall 2025"),
@@ -31,9 +34,14 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS students (
             student_id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE
+            email TEXT NOT NULL UNIQUE,
+            token TEXT
         )
     """)
+    columns = [row["name"] for row in conn.execute("PRAGMA table_info(students)")]
+    if "token" not in columns:
+        conn.execute("ALTER TABLE students ADD COLUMN token TEXT")
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS courses (
             course_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,18 +53,28 @@ def create_tables():
             FOREIGN KEY (student_id) REFERENCES students (student_id)
         )
     """)
-    conn.execute("""
-        INSERT OR IGNORE INTO students (student_id, name, email)
-        VALUES (1, 'Demo Student', 'demo@example.com')
-    """)
-
-    course_count = conn.execute("SELECT COUNT(*) FROM courses").fetchone()[0]
-    if course_count == 0 and os.getenv("SEED_DEMO_DATA", "1") == "1":
-        conn.executemany(
-            "INSERT INTO courses (student_id, course_name, credits, grade, semester) "
-            "VALUES (1, ?, ?, ?, ?)",
-            DEMO_COURSES
-        )
-
     conn.commit()
     conn.close()
+
+
+def create_demo_student():
+    conn = get_connection()
+    count = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    if count >= MAX_SESSIONS:
+        conn.close()
+        raise RuntimeError("Too many demo sessions")
+
+    token = secrets.token_urlsafe(24)
+    cursor = conn.execute(
+        "INSERT INTO students (name, email, token) VALUES (?, ?, ?)",
+        ("Demo Visitor", f"{uuid.uuid4().hex}@demo.local", token)
+    )
+    student_id = cursor.lastrowid
+    conn.executemany(
+        "INSERT INTO courses (student_id, course_name, credits, grade, semester) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [(student_id, *course) for course in DEMO_COURSES]
+    )
+    conn.commit()
+    conn.close()
+    return student_id, token

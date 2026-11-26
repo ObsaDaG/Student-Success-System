@@ -1,10 +1,10 @@
 import os
-
-from fastapi import FastAPI, HTTPException
+import secrets
+from fastapi import FastAPI,Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from database import create_tables, get_connection
+from database import create_tables, get_connection, create_demo_student
 from gpa import calculate_gpa
 from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend, grade_distribution
 from advisor import get_recommendations, answer_question, SUGGESTED_QUESTIONS
@@ -34,6 +34,26 @@ class Course(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=300)
 
+    def require_session(student_id: int, x_session_token: str = Header(default="")):
+     conn = get_connection()
+    row = conn.execute(
+        "SELECT token FROM students WHERE student_id = ?",
+        (student_id,)
+    ).fetchone()
+    conn.close()
+
+    if row is None or not row["token"] or not secrets.compare_digest(row["token"], x_session_token):
+        raise HTTPException(status_code=403, detail="Invalid or missing session")
+
+
+@app.post("/api/session")
+def start_session():
+    try:
+        student_id, token = create_demo_student()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Too many demo sessions right now")
+    return {"student_id": student_id, "token": token}
+
 
 def load_courses(student_id):
     conn = get_connection()
@@ -44,7 +64,7 @@ def load_courses(student_id):
     conn.close()
     return [dict(row) for row in rows]
 
-@app.get("/api/students/{student_id}/advisor")
+@app.get("/api/students/{student_id}/advisor", dependencies=[Depends(require_session)])
 def get_advisor(student_id: int):
     courses = load_courses(student_id)
     source, recommendations = get_recommendations(courses)
@@ -56,7 +76,7 @@ def get_advisor(student_id: int):
     }
 
 
-@app.post("/api/students/{student_id}/advisor/ask")
+@app.post("/api/students/{student_id}/advisor/ask", dependencies=[Depends(require_session)])
 def ask_advisor(student_id: int, request: AskRequest):
     courses = load_courses(student_id)
     source, answer = answer_question(courses, request.question)
@@ -73,7 +93,7 @@ def ask_advisor(student_id: int, request: AskRequest):
 def home():
     return {"message": "Student-Success-System API is running"}
 
-@app.get("/api/students/{student_id}/courses")
+@app.get("/api/students/{student_id}/courses", dependencies=[Depends(require_session)])
 def get_courses(student_id: int):
     conn = get_connection()
     rows = conn.execute(
@@ -85,7 +105,7 @@ def get_courses(student_id: int):
         "student_id": student_id,
         "courses": [dict(row) for row in rows]
     }
-@app.post("/api/students/{student_id}/courses")
+@app.post("/api/students/{student_id}/courses", dependencies=[Depends(require_session)])
 def add_course(student_id: int, course: Course):
     conn = get_connection()
     student = conn.execute(
@@ -111,7 +131,7 @@ def add_course(student_id: int, course: Course):
         "student_id": student_id,
         "course": saved
     }
-@app.get("/api/students/{student_id}/gpa/cumulative")
+@app.get("/api/students/{student_id}/gpa/cumulative", dependencies=[Depends(require_session)])
 def get_cumulative_gpa(student_id: int):
     conn = get_connection()
     rows = conn.execute(
@@ -129,7 +149,7 @@ def get_cumulative_gpa(student_id: int):
         "course_count": len(courses)
     }
 
-@app.get("/api/students/{student_id}/gpa/semesters/{semester}")
+@app.get("/api/students/{student_id}/gpa/semesters/{semester}", dependencies=[Depends(require_session)])
 def get_semester_gpa(student_id: int, semester: str):
     conn = get_connection()
     rows = conn.execute(
@@ -148,7 +168,7 @@ def get_semester_gpa(student_id: int, semester: str):
         "course_count": len(courses)
     }
 
-@app.delete("/api/students/{student_id}/courses/{course_id}")
+@app.delete("/api/students/{student_id}/courses/{course_id}", dependencies=[Depends(require_session)])
 def delete_course(student_id: int, course_id: int):
     conn = get_connection()
     cursor = conn.execute(
@@ -164,7 +184,7 @@ def delete_course(student_id: int, course_id: int):
 
     return {"message": "Course deleted successfully", "course_id": course_id}
 
-@app.put("/api/students/{student_id}/courses/{course_id}")
+@app.put("/api/students/{student_id}/courses/{course_id}", dependencies=[Depends(require_session)])
 def update_course(student_id: int, course_id: int, course: Course):
     conn = get_connection()
     cursor = conn.execute(
@@ -186,7 +206,7 @@ def update_course(student_id: int, course_id: int, course: Course):
         "course": saved
     }
 
-@app.get("/api/students/{student_id}/analytics")
+@app.get("/api/students/{student_id}/analytics", dependencies=[Depends(require_session)])
 def get_analytics(student_id: int):
     conn = get_connection()
     rows = conn.execute(
