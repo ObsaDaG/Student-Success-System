@@ -3,6 +3,44 @@ const API_BASE =
     ? "http://127.0.0.1:8000"
     : "https://student-success-api-hllh.onrender.com";
 
+    const THEME_KEY = "student-success-theme";
+
+function currentTheme() {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+
+function applyChartTheme() {
+  if (typeof Chart === "undefined") {
+    return;
+  }
+  const dark = currentTheme() === "dark";
+  Chart.defaults.color = dark ? "#b4c0d6" : "#5b6a80";
+  Chart.defaults.borderColor = dark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.08)";
+  if (Chart.instances) {
+    Object.values(Chart.instances).forEach(chart => chart.update());
+  }
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (error) {}
+
+  const button = document.getElementById("themeToggle");
+  if (button) {
+    button.textContent = theme === "dark" ? "☀️" : "🌙";
+    button.setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+  }
+  applyChartTheme();
+}
+
+document.getElementById("themeToggle").addEventListener("click", () => {
+  setTheme(currentTheme() === "dark" ? "light" : "dark");
+});
+
+setTheme(currentTheme());
+
 const SESSION_KEY = "student-success-session";
 let session = null;
 let sessionPromise = null;
