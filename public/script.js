@@ -3,41 +3,65 @@ const API_BASE =
     ? "http://127.0.0.1:8000"
     : "https://student-success-api-hllh.onrender.com";
 
-    const SESSION_KEY = "student-success-session";
+const SESSION_KEY = "student-success-session";
 let session = null;
 let sessionPromise = null;
+let sessionResolve = null;
+let authMode = "login";
+
+function showAuth(show) {
+  document.getElementById("authOverlay").hidden = !show;
+}
+
+function updateUserLabel() {
+  const label = document.getElementById("userName");
+  if (label && session) {
+    label.textContent = session.name || "";
+  }
+}
 
 function forgetSession() {
   session = null;
   sessionPromise = null;
+  sessionResolve = null;
   try {
     localStorage.removeItem(SESSION_KEY);
   } catch (error) {}
 }
 
-async function startSession() {
+function finishLogin(data) {
+  session = { student_id: data.student_id, token: data.token, name: data.name || "" };
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch (error) {}
+  showAuth(false);
+  updateUserLabel();
+  if (sessionResolve) {
+    sessionResolve();
+  }
+}
+
+function ensureSession() {
+  if (session) {
+    return Promise.resolve();
+  }
+  if (sessionPromise) {
+    return sessionPromise;
+  }
+
+  sessionPromise = new Promise(resolve => { sessionResolve = resolve; });
+
   try {
     const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
     if (saved && saved.student_id && saved.token) {
       session = saved;
-      return;
+      updateUserLabel();
+      sessionResolve();
+      return sessionPromise;
     }
   } catch (error) {}
 
-  const response = await fetch(`${API_BASE}/api/session`, { method: "POST" });
-  if (!response.ok) {
-    throw new Error("Could not start a session");
-  }
-  session = await response.json();
-  try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  } catch (error) {}
-}
-
-function ensureSession() {
-  if (!sessionPromise) {
-    sessionPromise = startSession();
-  }
+  showAuth(true);
   return sessionPromise;
 }
 
@@ -53,9 +77,92 @@ async function apiFetch(path, options = {}) {
     }
     forgetSession();
   }
-  throw new Error("Could not start a session");
+  throw new Error("Session expired");
 }
 
+function setAuthMode(mode) {
+  authMode = mode;
+  const registering = mode === "register";
+  document.getElementById("nameField").hidden = !registering;
+  document.getElementById("authName").required = registering;
+  document.getElementById("tabLogin").classList.toggle("active", !registering);
+  document.getElementById("tabRegister").classList.toggle("active", registering);
+  document.getElementById("authSubmit").textContent = registering ? "Create account" : "Log in";
+  document.getElementById("authPassword").autocomplete = registering ? "new-password" : "current-password";
+  document.getElementById("authMessage").textContent = "";
+}
+
+async function submitAuth(event) {
+  event.preventDefault();
+  const message = document.getElementById("authMessage");
+  const submit = document.getElementById("authSubmit");
+  message.textContent = "";
+  submit.disabled = true;
+
+  const body = {
+    email: document.getElementById("authEmail").value.trim(),
+    password: document.getElementById("authPassword").value
+  };
+  if (authMode === "register") {
+    body.name = document.getElementById("authName").value.trim();
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/${authMode === "register" ? "register" : "login"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      message.textContent = typeof data.detail === "string"
+        ? data.detail
+        : "Please check your details and try again.";
+      return;
+    }
+    document.getElementById("authPassword").value = "";
+    finishLogin(data);
+  } catch (error) {
+    message.textContent = "Could not reach the server. It may be waking up, so try again in a minute.";
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function continueAsGuest() {
+  const message = document.getElementById("authMessage");
+  message.textContent = "";
+  try {
+    const response = await fetch(`${API_BASE}/api/session`, { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      message.textContent = typeof data.detail === "string" ? data.detail : "Could not start a demo session.";
+      return;
+    }
+    finishLogin({ ...data, name: "Guest" });
+  } catch (error) {
+    message.textContent = "Could not reach the server. It may be waking up, so try again in a minute.";
+  }
+}
+
+async function logout() {
+  try {
+    if (session) {
+      await fetch(`${API_BASE}/api/logout`, {
+        method: "POST",
+        headers: { "X-Session-Token": session.token }
+      });
+    }
+  } catch (error) {}
+  forgetSession();
+  window.location.reload();
+}
+
+document.getElementById("tabLogin").addEventListener("click", () => setAuthMode("login"));
+document.getElementById("tabRegister").addEventListener("click", () => setAuthMode("register"));
+document.getElementById("authForm").addEventListener("submit", submitAuth);
+document.getElementById("guestButton").addEventListener("click", continueAsGuest);
+document.getElementById("logoutButton").addEventListener("click", logout);
 
 const form = document.getElementById("courseForm");
 const table = document.getElementById("courseTable");
@@ -299,7 +406,7 @@ form.addEventListener("submit", async event => {
 
       if (editingCourseId) {
     try {
-      const response =await apiFetch(/courses/${editingCourseId}, {
+           const response = await apiFetch(`/courses/${editingCourseId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -461,7 +568,6 @@ function setupCardToggle(cardId, dropId) {
 setupCardToggle("strongestCard", "strongestDrop");
 setupCardToggle("weakestCard", "weakestDrop");
 
-const ADVISOR_URL = await apiFetch("/advisor")
 
 function sourceLabel(source) {
   return source === "ai" ? "AI-generated" : "Rule-based";
@@ -535,7 +641,7 @@ async function askAdvisor(question) {
   buttons.forEach(button => { button.disabled = true; });
 
   try {
-    const response = await fetch(`${ADVISOR_URL}/ask`, {
+    const response = await apiFetch("/advisor/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: text })

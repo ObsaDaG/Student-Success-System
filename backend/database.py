@@ -1,13 +1,19 @@
+import hashlib
+import hmac
 import os
 import secrets
 import sqlite3
+import time
 import uuid
 
 DB_NAME = os.getenv(
     "DB_PATH",
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "student_success.db")
 )
-MAX_SESSIONS = int(os.getenv("MAX_SESSIONS", "500"))
+MAX_GUESTS = int(os.getenv("MAX_SESSIONS", "500"))
+MAX_ACCOUNTS = int(os.getenv("MAX_ACCOUNTS", "500"))
+SESSION_SECONDS = 30 * 24 * 3600
+PASSWORD_ROUNDS = 600_000
 
 DEMO_COURSES = [
     ("Introduction to Programming", 3, 3.5, "Fall 2025"),
@@ -35,12 +41,15 @@ def create_tables():
             student_id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE,
-            token TEXT
+            token TEXT,
+            password_hash TEXT
         )
     """)
     columns = [row["name"] for row in conn.execute("PRAGMA table_info(students)")]
     if "token" not in columns:
         conn.execute("ALTER TABLE students ADD COLUMN token TEXT")
+    if "password_hash" not in columns:
+        conn.execute("ALTER TABLE students ADD COLUMN password_hash TEXT")
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS courses (
@@ -53,21 +62,114 @@ def create_tables():
             FOREIGN KEY (student_id) REFERENCES students (student_id)
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            token TEXT PRIMARY KEY,
+            student_id INTEGER NOT NULL,
+            created_at REAL NOT NULL,
+            FOREIGN KEY (student_id) REFERENCES students (student_id)
+        )
+    """)
     conn.commit()
     conn.close()
 
 
+def hash_password(password):
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_ROUNDS)
+    return f"{salt.hex()}${digest.hex()}"
+
+
+def verify_password(password, stored):
+    if not stored or "$" not in stored:
+        return False
+    salt_hex, digest_hex = stored.split("$", 1)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), PASSWORD_ROUNDS
+    )
+    return hmac.compare_digest(digest.hex(), digest_hex)
+
+
+def create_session(student_id):
+    token = secrets.token_urlsafe(32)
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO sessions (token, student_id, created_at) VALUES (?, ?, ?)",
+        (token, student_id, time.time())
+    )
+    conn.commit()
+    conn.close()
+    return token
+
+
+def get_session_student(token):
+    if not token:
+        return None
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT student_id, created_at FROM sessions WHERE token = ?",
+        (token,)
+    ).fetchone()
+    conn.close()
+    if row is None or time.time() - row["created_at"] > SESSION_SECONDS:
+        return None
+    return row["student_id"]
+
+
+def delete_session(token):
+    conn = get_connection()
+    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    conn.commit()
+    conn.close()
+
+
+def create_account(name, email, password):
+    conn = get_connection()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM students WHERE password_hash IS NOT NULL"
+    ).fetchone()[0]
+    if count >= MAX_ACCOUNTS:
+        conn.close()
+        raise RuntimeError("Too many accounts")
+
+    try:
+        cursor = conn.execute(
+            "INSERT INTO students (name, email, password_hash) VALUES (?, ?, ?)",
+            (name, email, hash_password(password))
+        )
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError("Email already registered")
+
+    conn.commit()
+    student_id = cursor.lastrowid
+    conn.close()
+    return student_id
+
+
+def find_account(email):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT student_id, name, password_hash FROM students "
+        "WHERE email = ? AND password_hash IS NOT NULL",
+        (email,)
+    ).fetchone()
+    conn.close()
+    return row
+
+
 def create_demo_student():
     conn = get_connection()
-    count = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
-    if count >= MAX_SESSIONS:
+    count = conn.execute(
+        "SELECT COUNT(*) FROM students WHERE password_hash IS NULL"
+    ).fetchone()[0]
+    if count >= MAX_GUESTS:
         conn.close()
         raise RuntimeError("Too many demo sessions")
 
-    token = secrets.token_urlsafe(24)
     cursor = conn.execute(
-        "INSERT INTO students (name, email, token) VALUES (?, ?, ?)",
-        ("Demo Visitor", f"{uuid.uuid4().hex}@demo.local", token)
+        "INSERT INTO students (name, email) VALUES (?, ?)",
+        ("Guest", f"{uuid.uuid4().hex}@demo.local")
     )
     student_id = cursor.lastrowid
     conn.executemany(
@@ -77,4 +179,4 @@ def create_demo_student():
     )
     conn.commit()
     conn.close()
-    return student_id, token
+    return student_id, create_session(student_id)

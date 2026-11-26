@@ -1,10 +1,15 @@
+import time
+from collections import defaultdict, deque
 import os
 import secrets
 from fastapi import FastAPI,Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from database import create_tables, get_connection, create_demo_student
+from database import (
+    create_tables, get_connection, create_demo_student, create_account,
+    find_account, verify_password, create_session, get_session_student, delete_session
+)
 from gpa import calculate_gpa
 from analytics import strongest_and_weakest, gpa_by_semester, gpa_trend, grade_distribution
 from advisor import get_recommendations, answer_question, SUGGESTED_QUESTIONS
@@ -34,15 +39,25 @@ class Course(BaseModel):
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=300)
 
-    def require_session(student_id: int, x_session_token: str = Header(default="")):
-     conn = get_connection()
-    row = conn.execute(
-        "SELECT token FROM students WHERE student_id = ?",
-        (student_id,)
-    ).fetchone()
-    conn.close()
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+MAX_FAILED_LOGINS = 8
+LOGIN_WINDOW_SECONDS = 900
+_failed_logins = defaultdict(deque)
 
-    if row is None or not row["token"] or not secrets.compare_digest(row["token"], x_session_token):
+
+class RegisterRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    email: str = Field(pattern=EMAIL_PATTERN, max_length=254)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(pattern=EMAIL_PATTERN, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+def require_session(student_id: int, x_session_token: str = Header(default="")):
+    if get_session_student(x_session_token) != student_id:
         raise HTTPException(status_code=403, detail="Invalid or missing session")
 
 
@@ -52,7 +67,55 @@ def start_session():
         student_id, token = create_demo_student()
     except RuntimeError:
         raise HTTPException(status_code=503, detail="Too many demo sessions right now")
-    return {"student_id": student_id, "token": token}
+    return {"student_id": student_id, "token": token, "name": "Guest"}
+
+
+@app.post("/api/register")
+def register(request: RegisterRequest):
+    name = request.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Please enter your name")
+
+    email = request.email.strip().lower()
+    try:
+        student_id = create_account(name, email, request.password)
+    except ValueError:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Registrations are closed for now")
+
+    return {"student_id": student_id, "token": create_session(student_id), "name": name}
+
+
+@app.post("/api/login")
+def login(request: LoginRequest):
+    email = request.email.strip().lower()
+    now = time.time()
+
+    attempts = _failed_logins[email]
+    while attempts and now - attempts[0] > LOGIN_WINDOW_SECONDS:
+        attempts.popleft()
+    if len(attempts) >= MAX_FAILED_LOGINS:
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again in a few minutes.")
+
+    account = find_account(email)
+    if account is None or not verify_password(request.password, account["password_hash"]):
+        attempts.append(now)
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    attempts.clear()
+    return {
+        "student_id": account["student_id"],
+        "token": create_session(account["student_id"]),
+        "name": account["name"]
+    }
+
+
+@app.post("/api/logout")
+def logout(x_session_token: str = Header(default="")):
+    delete_session(x_session_token)
+    return {"message": "Logged out"}
+
 
 
 def load_courses(student_id):
